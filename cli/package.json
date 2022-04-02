@@ -6,10 +6,15 @@
   "directories": {
     "lib": "lib"
   },
+  "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "fs": "^0.0.1-security",
+    "mysql": "^2.18.1"
+  }
 }
