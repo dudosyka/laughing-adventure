@@ -2,12 +2,11 @@ import mysql from 'mysql'
 import fs from 'fs'
 import {default as db_cnf} from './db.js';
 
-class AccessControlCli {
+class AccessControl {
     connection;
     constructor() {
-        console.log(db_cnf)
         if (db_cnf.host != "*") {
-            this.connect()
+            this.connect();
         }
     }
 
@@ -29,13 +28,10 @@ class AccessControlCli {
     }
 
     async writeDbConfig(credentials) {
-        return await (new Promise((resolve, reject) => {
-            fs.writeFile('./db.js', `export default ${JSON.stringify(credentials)}`, err => {
-                if (err)
-                    reject(err);
-                resolve();
-            })
-        }))
+        process.env['ACCESS_CONTROL_HOST'] = credentials.host;
+        process.env['ACCESS_CONTROL_DATABASE'] = credentials.database;
+        process.env['ACCESS_CONTROL_USER'] = credentials.user;
+        process.env['ACCESS_CONTROL_PASSWORD'] = credentials.password;
     }
 
     connect() {
@@ -61,18 +57,81 @@ class AccessControlCli {
 
     async migrate() {
         await this.connect();
-        await this.query(await this.readFile('./migrations/rule_entity.sql').then(data => data).catch(err => console.error(err))).then(res => {
+        let sql = `CREATE TABLE IF NOT EXISTS \`rule_entity\` (
+                      \`id\` INT NOT NULL AUTO_INCREMENT,
+                      \`name\` VARCHAR(100) NULL,
+                      \`description\` VARCHAR(1000) NULL,
+                      PRIMARY KEY (\`id\`),
+                      UNIQUE INDEX \`id_UNIQUE\` (\`id\` ASC) VISIBLE)
+                    ENGINE = InnoDB
+        `;
+        await this.query(sql).then(res => {
             console.log('rule_entity.sql... Done!');
-        })
-        await this.query(await this.readFile('./migrations/user_rule.sql').then(data => data).catch(err => console.error(err))).then(res => {
+        });
+        sql = `CREATE TABLE IF NOT EXISTS \`user_rule\` (
+                  \`id\` INT NOT NULL AUTO_INCREMENT,
+                  \`user_id\` INT NOT NULL,
+                  \`rule_entity_id\` INT NOT NULL,
+                  PRIMARY KEY (\`id\`),
+                  UNIQUE INDEX \`id_UNIQUE\` (\`id\` ASC) VISIBLE,
+                  INDEX \`fk_user_rule_rule_entity1_idx\` (\`rule_entity_id\` ASC) VISIBLE,
+                  CONSTRAINT \`fk_user_rule_rule_entity1\`
+                    FOREIGN KEY (\`rule_entity_id\`)
+                    REFERENCES \`rule_entity\` (\`id\`)
+                    ON DELETE NO ACTION
+                    ON UPDATE NO ACTION)
+                ENGINE = InnoDB
+        `;
+        await this.query(sql).then(res => {
             console.log('user_rule.sql... Done!');
-        })
-        await this.query(await this.readFile('./migrations/auth_assignment.sql').then(data => data).catch(err => console.error(err))).then(res => {
+        });
+        sql = `CREATE TABLE IF NOT EXISTS \`auth_assignment\` (
+              \`id\` INT NOT NULL AUTO_INCREMENT,
+              \`parent\` INT NOT NULL,
+              \`child\` INT NOT NULL,
+              PRIMARY KEY (\`id\`),
+              UNIQUE INDEX \`id_UNIQUE\` (\`id\` ASC) VISIBLE,
+              INDEX \`fk_auth_assignment_rule_entity1_idx\` (\`parent\` ASC) VISIBLE,
+              INDEX \`fk_auth_assignment_rule_entity2_idx\` (\`child\` ASC) VISIBLE,
+              CONSTRAINT \`fk_auth_assignment_rule_entity1\`
+                FOREIGN KEY (\`parent\`)
+                REFERENCES \`rule_entity\` (\`id\`)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE,
+              CONSTRAINT \`fk_auth_assignment_rule_entity2\`
+                FOREIGN KEY (\`child\`)
+                REFERENCES \`rule_entity\` (\`id\`)
+                ON DELETE NO ACTION
+                ON UPDATE NO ACTION);
+            ALTER TABLE \`auth_assignment\`
+            ADD UNIQUE \`unique_pair\` (\`parent\`, \`child\`);
+        `;
+        await this.query(sql).then(res => {
             console.log('auth_assignment.sql... Done!');
-        })
-        await this.query(await this.readFile('./migrations/auth_assignment_min.sql').then(data => data).catch(err => console.error(err))).then(res => {
+        });
+        sql = `CREATE TABLE IF NOT EXISTS \`auth_assignment_min\` (
+                  \`id\` INT NOT NULL AUTO_INCREMENT,
+                  \`parent\` INT NOT NULL,
+                  \`child\` INT NOT NULL,
+                  PRIMARY KEY (\`id\`),
+                  UNIQUE INDEX \`id_UNIQUE\` (\`id\` ASC) VISIBLE,
+                  INDEX \`fk_auth_assignment_min_rule_entity1_idx\` (\`parent\` ASC) VISIBLE,
+                  INDEX \`fk_auth_assignment_min_rule_entity2_idx\` (\`child\` ASC) VISIBLE,
+                  CONSTRAINT \`fk_auth_assignment_min_rule_entity1\`
+                    FOREIGN KEY (\`parent\`)
+                    REFERENCES \`rule_entity\` (\`id\`)
+                    ON DELETE CASCADE
+                    ON UPDATE CASCADE,
+                  CONSTRAINT \`fk_auth_assignment_min_rule_entity2\`
+                    FOREIGN KEY (\`child\`)
+                    REFERENCES \`rule_entity\` (\`id\`)
+                    ON DELETE CASCADE
+                    ON UPDATE CASCADE)
+                ENGINE = InnoDB
+        `;
+        await this.query(sql).then(res => {
             console.log('auth_assignment_min.sql... Done!');
-        })
+        });
     }
 
     async add(name, description) {

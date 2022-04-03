@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
-import AccessControlCli from "../lib/main.js";
+import AccessControl from "../lib/main.js";
 
-const accessControl = new AccessControlCli()
+const accessControl = new AccessControl()
 
 if (!process.argv[2]) {
     accessControl.print(() => {
