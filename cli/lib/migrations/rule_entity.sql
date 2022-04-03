@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS `mydb`.`rule_entity` (
+CREATE TABLE IF NOT EXISTS `rule_entity` (
   `id` INT NOT NULL AUTO_INCREMENT,
   `name` VARCHAR(100) NULL,
   `description` VARCHAR(1000) NULL,

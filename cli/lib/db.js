@@ -1,0 +1,1 @@
+export default {"host":"localhost","database":"access-control-test-db","user":"dudosyka","password":"123"}
