@@ -1,6 +1,6 @@
 {
   "name": "nodejs-access-control-cli",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "",
   "main": "./lib/main.js",
   "bin": {
@@ -28,7 +28,7 @@
     "dotenv": "^16.0.0",
     "fs": "^0.0.1-security",
     "mysql": "^2.18.1",
-    "nodejs-access-control": "^1.0.1",
+    "nodejs-access-control": "^1.0.6",
     "path": "^0.12.7"
   },
   "homepage": "https://github.com/dudosyka/laughing-adventure#readme"

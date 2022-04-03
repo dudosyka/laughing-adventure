@@ -1,6 +1,15 @@
 import mysql from 'mysql'
 import fs from 'fs'
-import {default as db_cnf} from './db.js';
+import dotenv from 'dotenv'
+
+dotenv.config();
+
+const db_cnf = {
+    host: process.env['ACCESS_CONTROL_HOST'],
+    database: process.env['ACCESS_CONTROL_DATABASE'],
+    user: process.env['ACCESS_CONTROL_USER'],
+    password: process.env['ACCESS_CONTROL_PASSWORD'],
+}
 
 class AccessControl {
     connection;
@@ -293,4 +302,4 @@ class AccessControl {
     }
 }
 
-export default AccessControlCli;
+export default AccessControl;
