@@ -83,7 +83,11 @@ class AccessControlCli {
         })
     }
 
-    async getRules() {
+    async getRules(rule_id = null, minimized = false) {
+        if (minimized)
+            return await this.query('select `rule`.`id`, `rule`.`name`, `rule`.`description` from `auth_assignment_min` as `assignment` left join `rule_entity` as `rule` on `rule`.`id` = `assignment`.`child` where `assignment`.`parent` = ?', [ rule_id ])
+        if (rule_id)
+            return await this.query('select `rule`.`id`, `rule`.`name`, `rule`.`description` from `auth_assignment` as `assignment` left join `rule_entity` as `rule` on `rule`.`id` = `assignment`.`child` where `assignment`.`parent` = ?', [ rule_id ]);
         return await this.query('select * from `rule_entity`');
     }
 
@@ -136,32 +140,56 @@ class AccessControlCli {
         await this.query(query, data);
     }
 
-    async assign(parent, child) {
-        if (parent == child) {
-            console.error('Error! parent and child must not be equal!');
-            return;
-        }
-
-        const checkDouble  = await this.query('select * from `auth_assignment` where (`parent` = ? and `child` = ?) or (`parent` = ? and `child` = ?)', [ parent, child, child, parent ]);
-        if (checkDouble.length) {
-            console.error("Error! " + JSON.stringify(checkDouble[0]) + " already exists");
-            return;
-        }
-
-        await this.query('insert into `auth_assignment` (`parent`, `child`) values (?, ?)', [ parseInt(parent), parseInt(child) ])
-        .then(async () => {
-            await this.minimize();
-        })
-        .catch(err => {
-            if (err.errno == 1452) {
-                if (err.sqlMessage.includes('child')) {
-                    console.error("Error! Access control can`t find child with id = " + child);
-                }
-                else {
-                    console.error("Error! Access control can`t find parent with id = " + parent);
-                }
+    async assign(parent, children) {
+        for (let child of children) {
+            if (parent == child) {
+                console.error('Error! parent and child must not be equal!');
+                return;
             }
-        });
+
+            const checkDouble  = await this.query('select * from `auth_assignment` where (`parent` = ? and `child` = ?) or (`parent` = ? and `child` = ?)', [ parent, child, child, parent ]);
+            if (checkDouble.length) {
+                console.error("Error! " + JSON.stringify(checkDouble[0]) + " already exists");
+                return;
+            }
+        }
+        for (let child of children) {
+            await this.query('insert into `auth_assignment` (`parent`, `child`) values (?, ?)', [ parseInt(parent), parseInt(child) ])
+                .catch(err => {
+                    if (err.errno == 1452) {
+                        if (err.sqlMessage.includes('child')) {
+                            console.error("Error! Access control can`t find child with id = " + child);
+                        }
+                        else {
+                            console.error("Error! Access control can`t find parent with id = " + parent);
+                        }
+                    }
+                });
+        }
+        await this.minimize();
+    }
+
+    async removeRule(ids) {
+        let query = '';
+        let data = [];
+        for (let id of ids) {
+            query += 'delete from `rule_entity` where `id` = ?;';
+            data.push(id);
+        }
+        await this.query(query, data);
+        await this.minimize();
+    }
+
+    async removeAssign(parent, children) {
+        let query = '';
+        let data = [];
+        for (let child of children) {
+            query += 'delete from `auth_assignment` where `parent` = ? and `child` = ?';
+            data.push(parseInt(parent));
+            data.push(parseInt(child));
+        }
+        await this.query(query, data);
+        await this.minimize();
     }
 }
 

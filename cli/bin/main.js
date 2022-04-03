@@ -15,7 +15,11 @@ else {
                 console.log('---- <migrate> (This command will start migration process after which access-control add to your database some tables which are needed for correctly working.)');
                 console.log('---- <add> [name (max=100)] [description (max=1000)] (This command will add new rule entity to access-control)');
                 console.log('---- <rules> (This command will print all available rules in your db.)');
-                console.log('---- <assign> [parent] [child_1] [child_2] ... [child_n]. (This command will assign child rules to [parent].)');
+                console.log('---- <rules> [rule_id] (This command will print all children rules for [rule_id].)');
+                console.log('---- <rules> -M [rule_id] (This command will print minimized (in format role => rule, with all inheritance) rules for [rule_id].)');
+                console.log('---- <rules> -R [rule_1_id] [rule_2_id] ... [rule_n_id] (This command will print all available rules in your db. Max amount of rules in one command - 15)');
+                console.log('---- <assign> [parent] [child_1] [child_2] ... [child_n]. (This command will assign all child rules to [parent]. Max amount of children in one command - 15)');
+                console.log('---- <assign> -R [parent] [child_1] [child_2] ... [child_n]. (This command will remove assignments from [parent]. Max amount of children in one command - 15)');
                 console.log('---- <rules> [parent]. (This command will print all rules which are children for [parent] in your db.)');
                 console.log('---- <user> [user_id]. (This command will print all available rules for user with id = [user_id].)');
             })
@@ -53,17 +57,58 @@ else {
             break;
         case 'rules':
             accessControl.print(async () => {
+                let rows = [];
+                if (process.argv[3] == '-R') {
+                    console.log('Start removing...');
+                    let onDelete = [];
+                    for (let i = 4; i < 20; i++) {
+                        if (process.argv[i])
+                            onDelete.push(parseInt(process.argv[i]));
+                        else
+                            break
+                    }
+                    await accessControl.removeRule(onDelete);
+                    console.log('Done!');
+                    return;
+                } else if (process.argv[3] == '-M') {
+                    rows = await accessControl.getRules(parseInt(process.argv[4]), true);
+                } else if (process.argv[3]) {
+                    rows = await accessControl.getRules(parseInt(process.argv[3]));
+                } else {
+                    rows = await accessControl.getRules();
+                }
                 console.log('ID | name | description |');
-                const rows = await accessControl.getRules();
                 rows.map(row => {
                     console.log(`${row.id} | ${row.name} | ${row.description}`);
                 });
-            });
+            })
             break;
         case 'assign':
-            await accessControl.assign(process.argv[3], process.argv[4]);
-            // accessControl.print(async () => {
-            // });
+
+            accessControl.print(async () => {
+                if (process.argv[3] == '-R') {
+                    console.log('Start removing...')
+                    let children = [];
+                    for (let i = 4; i < 19; i++) {
+                        if (process.argv[i])
+                            children.push(process.argv[i]);
+                        else
+                            break;
+                    }
+                    await accessControl.removeAssign(process.argv[3], children);
+                    console.log('Done!');
+                }
+                else {
+                    let children = [];
+                    for (let i = 4; i < 19; i++) {
+                        if (process.argv[i])
+                            children.push(process.argv[i]);
+                        else
+                            break;
+                    }
+                    await accessControl.assign(process.argv[3], children);
+                }
+            });
             break;
         case 'user':
             break;

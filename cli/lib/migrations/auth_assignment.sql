@@ -9,8 +9,8 @@ CREATE TABLE IF NOT EXISTS `auth_assignment` (
   CONSTRAINT `fk_auth_assignment_rule_entity1`
     FOREIGN KEY (`parent`)
     REFERENCES `rule_entity` (`id`)
-    ON DELETE NO ACTION
-    ON UPDATE NO ACTION,
+    ON DELETE CASCADE
+    ON UPDATE CASCADE,
   CONSTRAINT `fk_auth_assignment_rule_entity2`
     FOREIGN KEY (`child`)
     REFERENCES `rule_entity` (`id`)
