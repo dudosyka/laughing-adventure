@@ -11,10 +11,14 @@
     "url": "git+https://github.com/dudosyka/laughing-adventure.git"
   },
   "keywords": [],
-  "author": "",
+  "author": "Dudosyka",
   "license": "ISC",
   "bugs": {
     "url": "https://github.com/dudosyka/laughing-adventure/issues"
+  },
+  "dependencies": {
+    "fs": "^0.0.1-security",
+    "mysql": "^2.18.1"
   },
   "homepage": "https://github.com/dudosyka/laughing-adventure#readme"
 }

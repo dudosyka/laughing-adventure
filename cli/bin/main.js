@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 import AccessControlCli from "../lib/main.js";
 
 const accessControl = new AccessControlCli()

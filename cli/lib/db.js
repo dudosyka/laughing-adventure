@@ -1,1 +1,1 @@
-export default {"host":"localhost","database":"access-control-test-db","user":"dudosyka","password":"123"}
+export default {"host":"localhost","database":"__test","user":"dudosyka","password":"1234"}
