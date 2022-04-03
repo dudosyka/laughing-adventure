@@ -83,7 +83,9 @@ class AccessControlCli {
         })
     }
 
-    async getRules(rule_id = null, minimized = false) {
+    async getRules(rule_id = null, minimized = false, user = null) {
+        if (user)
+            return await this.query('select `rule`.`id`, `rule`.`name`, `rule`.`description` from `user_rule` left join `rule_entity` as `rule` on `rule`.`id` = `user_rule`.`rule_entity_id` where `user_rule`.`user_id` = ?', [ parseInt(user) ]);
         if (minimized)
             return await this.query('select `rule`.`id`, `rule`.`name`, `rule`.`description` from `auth_assignment_min` as `assignment` left join `rule_entity` as `rule` on `rule`.`id` = `assignment`.`child` where `assignment`.`parent` = ?', [ rule_id ])
         if (rule_id)
@@ -119,17 +121,13 @@ class AccessControlCli {
         const assignments = await this.query('select * from `auth_assignment`');
         let children = {};
         for (let el of assignments) {
-            const before = Object.keys(children).length;
             children = await this.getChildren(children, el);
-            const after = Object.keys(children).length;
-            if (before == after) {
-                let key = String(el.parent) + String(el.child);
-                let _ = {
-                    parent: el.parent,
-                    child: el.child
-                }
-                Object.assign(children, {[key]: _ });
+            let key = String(el.parent) + String(el.child);
+            let _ = {
+                parent: el.parent,
+                child: el.child
             }
+            Object.assign(children, {[key]: _ });
         }
         let query = 'delete from `auth_assignment_min` where `id` != -1;';
         let data = [];
@@ -190,6 +188,49 @@ class AccessControlCli {
         }
         await this.query(query, data);
         await this.minimize();
+    }
+
+    async assignToUser(user_id, children, remove = false) {
+        let query = '';
+        let data = [];
+        for (let child of children) {
+            if (remove)
+                query += 'delete from `user_rule` where `user_id` = ? and `rule_entity_id` = ?;';
+            else
+                query += 'insert into `user_rule` (`user_id`, `rule_entity_id`) values (?, ?);';
+            data.push(user_id);
+            data.push(child);
+        }
+        await this.query(query, data);
+    }
+
+    async checkAccess(user_id, rule_id) {
+        const assignments = await this.query('select `rule_entity_id` from `user_rule` where `user_id` = ?', [ user_id ]);
+        if (assignments.length <= 0) {
+            return false;
+        }
+        let data = [];
+        let range = '(?';
+        let skip = true;
+        for (let assignment of assignments) {
+            if (assignment.rule_entity_id == rule_id) {
+                return true;
+            }
+            data.push(parseInt(assignment.rule_entity_id));
+            if (skip) {
+                skip = false;
+                continue;
+            }
+            range += ',?';
+        }
+        range += ')';
+        const minimized = await this.query('select `child` from `auth_assignment_min` where `parent` in ' + range, data);
+        for (let rule of minimized) {
+            if (rule.child == rule_id) {
+                return true;
+            }
+        }
+        return false;
     }
 }
 

@@ -18,10 +18,11 @@ else {
                 console.log('---- <rules> [rule_id] (This command will print all children rules for [rule_id].)');
                 console.log('---- <rules> -M [rule_id] (This command will print minimized (in format role => rule, with all inheritance) rules for [rule_id].)');
                 console.log('---- <rules> -R [rule_1_id] [rule_2_id] ... [rule_n_id] (This command will print all available rules in your db. Max amount of rules in one command - 15)');
+                console.log('---- <rules> -U [user_id]. (This command will print all available rules for user with id = [user_id].)');
                 console.log('---- <assign> [parent] [child_1] [child_2] ... [child_n]. (This command will assign all child rules to [parent]. Max amount of children in one command - 15)');
+                console.log('---- <assign> -U [user_id] [rule_1_id] [rule_2_id] ... [rule_n_id]. (This command will add rules to user with id [user_id]. Max amount of rules in one command - 15)');
+                console.log('---- <assign> -UR [user_id] [rule_1_id] [rule_2_id] ... [rule_n_id]. (This command will remove rules from user with id [user_id]. Max amount of rules in one command - 15)');
                 console.log('---- <assign> -R [parent] [child_1] [child_2] ... [child_n]. (This command will remove assignments from [parent]. Max amount of children in one command - 15)');
-                console.log('---- <rules> [parent]. (This command will print all rules which are children for [parent] in your db.)');
-                console.log('---- <user> [user_id]. (This command will print all available rules for user with id = [user_id].)');
             })
             break;
         case 'config':
@@ -70,8 +71,11 @@ else {
                     await accessControl.removeRule(onDelete);
                     console.log('Done!');
                     return;
-                } else if (process.argv[3] == '-M') {
+                }
+                else if (process.argv[3] == '-M') {
                     rows = await accessControl.getRules(parseInt(process.argv[4]), true);
+                } else if (process.argv[3] = '-U') {
+                    rows = await accessControl.getRules(null, null, parseInt(process.argv[4]));
                 } else if (process.argv[3]) {
                     rows = await accessControl.getRules(parseInt(process.argv[3]));
                 } else {
@@ -98,7 +102,23 @@ else {
                     await accessControl.removeAssign(process.argv[3], children);
                     console.log('Done!');
                 }
+                else if (process.argv[3] == '-U' || process.argv[3] == '-UR') {
+                    console.log('Start...');
+                    let children = [];
+                    for (let i = 5; i < 20; i++) {
+                        if (process.argv[i])
+                            children.push(parseInt(process.argv[i]));
+                        else
+                            break;
+                    }
+                    if (process.argv[3] == '-U')
+                        await accessControl.assignToUser(parseInt(process.argv[4]), children);
+                    else
+                        await accessControl.assignToUser(parseInt(process.argv[4]), children, true);
+                    console.log('Done!');
+                }
                 else {
+                    console.log('Start assignment...')
                     let children = [];
                     for (let i = 4; i < 19; i++) {
                         if (process.argv[i])
@@ -107,10 +127,9 @@ else {
                             break;
                     }
                     await accessControl.assign(process.argv[3], children);
+                    console.log('Done!');
                 }
             });
-            break;
-        case 'user':
             break;
         default:
             console.log('<-------------------------------------------------------------------------------------------------------->');
