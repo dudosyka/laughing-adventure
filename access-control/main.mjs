@@ -4,7 +4,7 @@ import dotenv from 'dotenv'
 
 dotenv.config();
 
-const db_cnf = {
+let db_cnf = {
     host: process.env['ACCESS_CONTROL_HOST'],
     database: process.env['ACCESS_CONTROL_DATABASE'],
     user: process.env['ACCESS_CONTROL_USER'],
@@ -13,7 +13,24 @@ const db_cnf = {
 
 class AccessControl {
     connection;
-    constructor() {
+    tables = {
+        auth_assignment: 'auth_assignment',
+        auth_assignment_min: 'auth_assignment_min',
+        rule_entity: 'rule_entity',
+        user_rule: 'user_rule',
+    }
+    constructor(tables = null, db = null) {
+        if (tables) {
+            this.tables = {
+                ...tables
+            }
+        }
+        if (db) {
+            db_cnf = {
+                ...db
+            }
+        }
+
         if (db_cnf.host != "*") {
             this.connect();
         }
@@ -153,16 +170,16 @@ class AccessControl {
 
     async getRules(rule_id = null, minimized = false, user = null) {
         if (user)
-            return await this.query('select `rule`.`id`, `rule`.`name`, `rule`.`description` from `user_rule` left join `rule_entity` as `rule` on `rule`.`id` = `user_rule`.`rule_entity_id` where `user_rule`.`user_id` = ?', [ parseInt(user) ]);
+            return await this.query('select `rule`.`id`, `rule`.`name`, `rule`.`description` from `'+this.tables.user_rule+'` left join `'+this.tables.rule_entity+'` as `rule` on `rule`.`id` = `user_rule`.`rule_entity_id` where `user_rule`.`user_id` = ?', [ parseInt(user) ]);
         if (minimized)
-            return await this.query('select `rule`.`id`, `rule`.`name`, `rule`.`description` from `auth_assignment_min` as `assignment` left join `rule_entity` as `rule` on `rule`.`id` = `assignment`.`child` where `assignment`.`parent` = ?', [ rule_id ])
+            return await this.query('select `rule`.`id`, `rule`.`name`, `rule`.`description` from `'+this.tables.auth_assignment_min+'` as `assignment` left join `'+this.tables.rule_entity+'` as `rule` on `rule`.`id` = `assignment`.`child` where `assignment`.`parent` = ?', [ rule_id ])
         if (rule_id)
-            return await this.query('select `rule`.`id`, `rule`.`name`, `rule`.`description` from `auth_assignment` as `assignment` left join `rule_entity` as `rule` on `rule`.`id` = `assignment`.`child` where `assignment`.`parent` = ?', [ rule_id ]);
-        return await this.query('select * from `rule_entity`');
+            return await this.query('select `rule`.`id`, `rule`.`name`, `rule`.`description` from `'+this.tables.auth_assignment+'` as `assignment` left join `'+this.tables.rule_entity+'` as `rule` on `rule`.`id` = `assignment`.`child` where `assignment`.`parent` = ?', [ rule_id ]);
+        return await this.query('select * from `'+this.tables.rule_entity+'`');
     }
 
     async getChildren(res, assignment) {
-        let data = await this.query("SELECT * FROM `auth_assignment` WHERE `parent` = ?", [ assignment.child ]);
+        let data = await this.query("SELECT * FROM `"+this.tables.auth_assignment+"` WHERE `parent` = ?", [ assignment.child ]);
         for (let i = 0; i < data.length; i++)
         {
             let el = data[i];
@@ -170,7 +187,7 @@ class AccessControl {
                 parent: assignment.parent,
                 child: el.child
             }
-            const children = await this.query("SELECT * FROM `auth_assignment` WHERE `parent` = ?", [ el.child ]);
+            const children = await this.query("SELECT * FROM `"+this.tables.auth_assignment+"` WHERE `parent` = ?", [ el.child ]);
             if (children.length == 0)
             {
                 let key = String(assignment.parent) + String(el.child);
@@ -186,7 +203,7 @@ class AccessControl {
     }
 
     async minimize() {
-        const assignments = await this.query('select * from `auth_assignment`');
+        const assignments = await this.query('select * from `'+this.tables.auth_assignment+'`');
         let children = {};
         for (let el of assignments) {
             children = await this.getChildren(children, el);
@@ -197,10 +214,10 @@ class AccessControl {
             }
             Object.assign(children, {[key]: _ });
         }
-        let query = 'delete from `auth_assignment_min` where `id` != -1;';
+        let query = 'delete from `'+this.tables.auth_assignment_min+'` where `id` != -1;';
         let data = [];
         for (let key of Object.keys(children)) {
-            query += "insert into `auth_assignment_min` (`parent`, `child`) values (?, ?);";
+            query += "insert into `"+this.tables.auth_assignment_min+"` (`parent`, `child`) values (?, ?);";
             data.push(children[key].parent, children[key].child);
         }
         await this.query(query, data);
@@ -213,14 +230,14 @@ class AccessControl {
                 return;
             }
 
-            const checkDouble  = await this.query('select * from `auth_assignment` where (`parent` = ? and `child` = ?) or (`parent` = ? and `child` = ?)', [ parent, child, child, parent ]);
+            const checkDouble  = await this.query('select * from `'+this.tables.auth_assignment+'` where (`parent` = ? and `child` = ?) or (`parent` = ? and `child` = ?)', [ parent, child, child, parent ]);
             if (checkDouble.length) {
                 console.error("Error! " + JSON.stringify(checkDouble[0]) + " already exists");
                 return;
             }
         }
         for (let child of children) {
-            await this.query('insert into `auth_assignment` (`parent`, `child`) values (?, ?)', [ parseInt(parent), parseInt(child) ])
+            await this.query('insert into `'+this.tables.auth_assignment+'` (`parent`, `child`) values (?, ?)', [ parseInt(parent), parseInt(child) ])
                 .catch(err => {
                     if (err.errno == 1452) {
                         if (err.sqlMessage.includes('child')) {
@@ -239,7 +256,7 @@ class AccessControl {
         let query = '';
         let data = [];
         for (let id of ids) {
-            query += 'delete from `rule_entity` where `id` = ?;';
+            query += 'delete from `'+this.tables.rule_entity+'` where `id` = ?;';
             data.push(id);
         }
         await this.query(query, data);
@@ -250,7 +267,7 @@ class AccessControl {
         let query = '';
         let data = [];
         for (let child of children) {
-            query += 'delete from `auth_assignment` where `parent` = ? and `child` = ?';
+            query += 'delete from `'+this.tables.auth_assignment+'` where `parent` = ? and `child` = ?';
             data.push(parseInt(parent));
             data.push(parseInt(child));
         }
@@ -263,9 +280,9 @@ class AccessControl {
         let data = [];
         for (let child of children) {
             if (remove)
-                query += 'delete from `user_rule` where `user_id` = ? and `rule_entity_id` = ?;';
+                query += 'delete from `'+this.tables.user_rule+'` where `user_id` = ? and `rule_entity_id` = ?;';
             else
-                query += 'insert into `user_rule` (`user_id`, `rule_entity_id`) values (?, ?);';
+                query += 'insert into `'+this.tables.user_rule+'` (`user_id`, `rule_entity_id`) values (?, ?);';
             data.push(user_id);
             data.push(child);
         }
@@ -273,7 +290,7 @@ class AccessControl {
     }
 
     async checkAccess(user_id, rule_id) {
-        const assignments = await this.query('select `rule_entity_id` from `user_rule` where `user_id` = ?', [ user_id ]);
+        const assignments = await this.query('select `rule_entity_id` from `'+this.tables.user_rule+'` where `user_id` = ?', [ user_id ]);
         if (assignments.length <= 0) {
             return false;
         }
@@ -292,7 +309,7 @@ class AccessControl {
             range += ',?';
         }
         range += ')';
-        const minimized = await this.query('select `child` from `auth_assignment_min` where `parent` in ' + range, data);
+        const minimized = await this.query('select `child` from `'+this.tables.auth_assignment_min+'` where `parent` in ' + range, data);
         for (let rule of minimized) {
             if (rule.child == rule_id) {
                 return true;
